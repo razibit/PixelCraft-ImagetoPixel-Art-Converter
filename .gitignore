@@ -1,0 +1,10 @@
+*.mp4
+*.pptx
+*.png
+*.pdf
+
+# Keep project documentation under version control.
+*.md
+!README.md
+!DEMO_SCRIPT.md
+!VIVA_GUIDE.md
