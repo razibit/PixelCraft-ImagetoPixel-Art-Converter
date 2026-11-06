@@ -4,7 +4,7 @@ A small C++ and OpenGL program that turns a PNG image into colored blocks. It sh
 
 ## Run on this computer
 
-Double-click `run.bat`, then press Enter at the console prompt to open `sample.png`. To use another image, type its full PNG path and press Enter. Paths in double quotes work too. Keep the console open: it is used when opening another image.
+Double-click `run.bat`, then press Enter at the console prompt to open `sample.png`. To use another image at startup, type its full PNG path and press Enter. Paths in double quotes work too. Keep the console open while the application runs.
 
 If the program is not built yet, `run.bat` builds it. To build manually, run `build.bat` from this folder. The build requires a Windows C++17 compiler and FreeGLUT headers, library and DLL. On this computer these are supplied by `C:\mingw64`; `C:\mingw64\bin` must be on PATH. A different computer needs the same compiler/FreeGLUT setup, including `libfreeglut.dll` on PATH or beside the executable.
 
@@ -15,7 +15,7 @@ If the program is not built yet, `run.bat` builds it. To build manually, run `bu
 | `+` or `=` / `-` | Increase / decrease block size (1–128 source pixels) |
 | `G` | Show or hide the block grid |
 | Click result | Inspect the sampled source position and RGB color; the small 3×3 view shows neighboring blocks |
-| `O` | Enter another PNG path in the console, then return to the application |
+| `O` | Choose another PNG in the file picker |
 | `S` | Save `pixelcraft-output.png` in this folder, replacing any earlier output |
 | Esc or `Q` | Quit |
 

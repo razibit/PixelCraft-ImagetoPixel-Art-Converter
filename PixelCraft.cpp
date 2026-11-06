@@ -4,6 +4,8 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "third_party/stb_image_write.h"
 #include <GL/freeglut.h>
+#include <windows.h>
+#include <commdlg.h>
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
@@ -29,6 +31,18 @@ std::string readPath() {
     if (path.size() >= 2 && path.front() == '"' && path.back() == '"')
         path = path.substr(1, path.size() - 2);
     return path;
+}
+
+std::string chooseImagePath() {
+    char path[32768] = {};
+    OPENFILENAMEA dialog = {};
+    dialog.lStructSize = sizeof(dialog);
+    dialog.lpstrFilter = "PNG images (*.png)\0*.png\0All files (*.*)\0*.*\0";
+    dialog.lpstrFile = path;
+    dialog.nMaxFile = sizeof(path);
+    dialog.lpstrTitle = "Open PNG image";
+    dialog.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+    return GetOpenFileNameA(&dialog) ? path : "";
 }
 
 bool loadImage(const std::string& path) {
@@ -159,7 +173,7 @@ void keyboard(unsigned char key, int, int) {
     case '+': case '=': blockSize = std::min(blockSize + 1, 128); selectedX = selectedY = -1; break;
     case '-': case '_': blockSize = std::max(blockSize - 1, 1); selectedX = selectedY = -1; break;
     case 'g': case 'G': showGrid = !showGrid; break;
-    case 'o': case 'O': { std::string path = readPath(); if (!path.empty() && !loadImage(path)) message = "Open failed; previous image kept. See console."; selectedX = selectedY = -1; break; }
+    case 'o': case 'O': { std::string path = chooseImagePath(); if (!path.empty() && !loadImage(path)) message = "Open failed; previous image kept. See console."; break; }
     case 's': case 'S': saveImage(); break;
     case 27: case 'q': case 'Q': glutLeaveMainLoop(); return;
     }
