@@ -14,6 +14,9 @@ If the program is not built yet, `run.bat` builds it. To build manually, run `bu
 |---|---|
 | `+` or `=` / `-` | Increase / decrease block size (1–128 source pixels) |
 | `G` | Show or hide the block grid |
+| `A` | Toggle sampling mode: Center pixel (nearest) vs. Box Average (area mean) |
+| `P` | Cycle palette modes: Off -> Retro 64-Color (Uniform Quantization) -> Game Boy (4-shade green) |
+| `C` | Cycle through color, grayscale, and black-and-white (128 threshold) modes |
 | Click result | Inspect the sampled source position and RGB color; the small 3×3 view shows neighboring blocks |
 | `O` | Choose another PNG in the file picker |
 | `S` | Save `pixelcraft-output.png` in this folder, replacing any earlier output |
@@ -23,9 +26,9 @@ The exported PNG has the input dimensions and does not include the grid or inspe
 
 ## How it works
 
-The image is stored as rows of RGB bytes. The program visits rectangular blocks using two loops. For each block, it samples the source pixel nearest its center and draws a rectangle of that color. Partial blocks use the center of the remaining area. The same sampling rule fills the saved PNG. OpenGL draws the images, rectangles, grid, and labels; FreeGLUT handles the window and input.
+The image is stored as rows of RGB bytes. The program visits rectangular blocks using two loops. For each block, it can either sample the source pixel nearest its center or compute the average RGB color of all pixels in the block (Box filter downsampling), and draws a rectangle of that color. Partial blocks use the actual remaining area. The color can further be quantized using a Retro 64-color palette or a classic Game Boy 4-shade green palette. The same sampling, color mode, and palette rules fill the saved PNG. OpenGL draws the images, rectangles, grid, and labels; FreeGLUT handles the window and input.
 
-This uses basic loops and arithmetic rather than a named course algorithm. It does not include palette reduction, grayscale, dithering, JPEG input, full-image zoom and panning, or algorithm visualization. These differ from the submitted proposal: **ask the teacher to approve the reduced scope**.
+This implements core Image Processing and Computer Graphics concepts: spatial downsampling (Center vs. Box Average filtering), color quantization (2-bit per channel uniform quantization and luminance palette mapping), and color conversions (weighted grayscale and thresholded binarization). It does not include dithering, JPEG input, full-image zoom and panning, or algorithm visualization.
 
 ## Files and credits
 
