@@ -28,6 +28,15 @@ PixelCraft loads a PNG and displays it alongside a blocky version. It walks thro
 - **Retro 64-Color:** Uses uniform quantization. Each color channel ($R, G, B$) is reduced from 256 levels (8 bits) to 4 levels (2 bits) via integer division and scaling (`(c / 64) * 85`), producing a constrained $4 \times 4 \times 4 = 64$ color palette.
 - **Game Boy 4-Shade Palette:** Computes luminance ($Y = 0.299R + 0.587G + 0.114B$) and maps the result into 4 authentic 1989 Nintendo Game Boy greenish tones (`(15,56,15)`, `(48,98,48)`, `(139,172,15)`, `(155,188,15)`).
 
+**How does Intensity Adjustment work (`[` and `]` keys)?**
+It applies point-processing luminance scaling ($P_{out} = \text{clamp}(P_{in} \times \text{intensity}, 0, 255)$), allowing interactive correction of under- or over-exposed images before or after spatial downsampling.
+
+**How does Algorithm Simulation work (`V` / Space key)?**
+It progressively traverses the image row by row using an OpenGL timer (`glutTimerFunc`), visualizing the spatial downsampling in real time with an animated scanline beam.
+
+**What image formats are supported?**
+Any standard image format—including PNG, JPEG, JPG, and BMP—is supported via `stb_image`.
+
 **Why does the result look blocky?** Each rectangular area is filled with only one color instead of showing every original pixel.
 
 **What happens at the image edge?** The last block can be smaller. Its sample is chosen from the center of that remaining area, so it stays inside the image.
@@ -38,8 +47,8 @@ PixelCraft loads a PNG and displays it alongside a blocky version. It walks thro
 
 **Why can detail disappear?** One sampled color cannot represent all the colors in a block, especially when blocks are large.
 
-**What changed from the submitted proposal?** Palette reduction, grayscale, JPEG input, full-image zoom/panning, and algorithm visualization are excluded; optional dithering is excluded too. Ask the teacher to approve the simpler scope.
+**What changed from the submitted proposal?** JPEG/BMP input, palette reduction, weighted grayscale/binary conversion, intensity scaling, and algorithm simulation are now fully implemented as promised in the proposal! Only error-diffusion dithering and arbitrary zooming/panning remain excluded.
 
 ## Quick demonstration
 
-Run `run.bat`, press Enter for the sample, use `+` and `-`, toggle `G`, press `A` to show Average vs. Center sampling, press `P` to cycle Retro 64-color and Game Boy palettes, press `C` to cycle color, grayscale, and black-and-white, click a block to inspect, press `S`, and open `pixelcraft-output.png`. The export uses the active sampling and palette modes.
+Run `run.bat`, press Enter for the sample, use `+` and `-`, toggle `G`, press `A` to show Average vs. Center sampling, press `[` and `]` to adjust intensity, press `V` to trigger the progressive pixelation simulation, press `P` to cycle Retro 64-color and Game Boy palettes, press `C` to cycle color, grayscale, and black-and-white, click a block to inspect, press `S`, and open `pixelcraft-output.png`. The export uses the active sampling, intensity, and palette modes.

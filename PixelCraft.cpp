@@ -1,4 +1,3 @@
-#define STBI_ONLY_PNG
 #define STB_IMAGE_IMPLEMENTATION
 #include "third_party/stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -22,11 +21,16 @@ Image image;
 int windowWidth = 1200, windowHeight = 760, blockSize = 16;
 bool showGrid = false;
 bool useAverageSampling = false;
+float intensityFactor = 1.0f; // 100% normal intensity, adjust with [ and ]
+bool isSimulating = false;    // Step-by-step pixelation animation
+int simProgressY = 0;
 enum class ColorMode { Original, Grayscale, BlackAndWhite };
 ColorMode colorMode = ColorMode::Original;
 enum class PaletteMode { Off, Retro64, GameBoy };
 PaletteMode paletteMode = PaletteMode::Off;
 int selectedX = -1, selectedY = -1;
+
+void simTimer(int);
 
 string message = "Click a block to inspect it.";
 
@@ -34,7 +38,7 @@ struct Panel { float x, y, width, height, scale; };
 Panel originalPanel{}, pixelPanel{};
 
 string readPath() {
-    cout << "\nPNG path (Enter for sample.png): " << flush;
+    cout << "\nImage path [PNG, JPG, BMP] (Enter for sample.png): " << flush;
     string path;
     if (!getline(cin, path)) return "";
     if (path.empty()) return "sample.png";
@@ -47,10 +51,10 @@ string chooseImagePath() {
     char path[32768] = {};
     OPENFILENAMEA dialog = {};
     dialog.lStructSize = sizeof(dialog);
-    dialog.lpstrFilter = "PNG images (*.png)\0*.png\0All files (*.*)\0*.*\0";
+    dialog.lpstrFilter = "All Supported Images (*.png;*.jpg;*.jpeg;*.bmp)\0*.png;*.jpg;*.jpeg;*.bmp\0PNG Images (*.png)\0*.png\0JPEG Images (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0Bitmap Images (*.bmp)\0*.bmp\0All files (*.*)\0*.*\0";
     dialog.lpstrFile = path;
     dialog.nMaxFile = sizeof(path);
-    dialog.lpstrTitle = "Open PNG image";
+    dialog.lpstrTitle = "Open Image";
     dialog.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
     return GetOpenFileNameA(&dialog) ? path : "";
 }
@@ -60,7 +64,7 @@ bool loadImage(const string& path) {
 
     // Reject oversized images before decoding them into memory.
     if (!stbi_info(path.c_str(), &w, &h, &channels)) {
-        cerr << "Could not open PNG: " << path << "\n";
+        cerr << "Could not open image: " << path << "\n";
         return false;
     }
     if (w > 4096 || h > 4096) {
@@ -71,7 +75,7 @@ bool loadImage(const string& path) {
     unsigned char* rgba = stbi_load(path.c_str(), &w, &h, &channels, 4);
 
     if (!rgba) {
-        cerr << "Could not open PNG: " << path << "\n";
+        cerr << "Could not open image: " << path << "\n";
         return false; 
     }
 
@@ -134,6 +138,15 @@ void applyPalette(unsigned char rgb[3]) {
     }
 }
 
+void applyIntensity(unsigned char rgb[3]) {
+    if (intensityFactor != 1.0f) {
+        for (int c = 0; c < 3; ++c) {
+            int val = static_cast<int>(rgb[c] * intensityFactor + 0.5f);
+            rgb[c] = static_cast<unsigned char>(min(255, max(0, val)));
+        }
+    }
+}
+
 void filteredColor(const unsigned char* c, unsigned char out[3]) {
     if (colorMode == ColorMode::Original) {
         out[0] = c[0]; out[1] = c[1]; out[2] = c[2];
@@ -142,6 +155,7 @@ void filteredColor(const unsigned char* c, unsigned char out[3]) {
         if (colorMode == ColorMode::BlackAndWhite) gray = gray >= 128u ? 255u : 0u;
         out[0] = out[1] = out[2] = static_cast<unsigned char>(gray);
     }
+    applyIntensity(out);
     applyPalette(out);
 }
 
@@ -204,10 +218,25 @@ void drawOriginal() {
     glDrawPixels(image.width, image.height, GL_RGB, GL_UNSIGNED_BYTE, image.rgb.data());
     glPixelZoom(1, 1);
 }
+void simTimer(int) {
+    if (isSimulating) {
+        simProgressY += blockSize * 2;
+        if (simProgressY >= image.height) {
+            simProgressY = image.height;
+            isSimulating = false;
+            message = "Simulation complete.";
+        } else {
+            glutTimerFunc(20, simTimer, 0);
+        }
+        glutPostRedisplay();
+    }
+}
+
 void drawPixelArt() {
+    int maxY = isSimulating ? min(simProgressY, image.height) : image.height;
 
     glBegin(GL_QUADS);
-    for (int y = 0; y < image.height; y += blockSize)
+    for (int y = 0; y < maxY; y += blockSize)
         for (int x = 0; x < image.width; x += blockSize) {
             unsigned char c[3];
             getBlockColor(x, y, c);
@@ -219,13 +248,25 @@ void drawPixelArt() {
         }
     glEnd();
 
+    // If currently simulating, draw a scanline beam at simProgressY
+    if (isSimulating && simProgressY < image.height) {
+        float lineY = pixelPanel.y + simProgressY * pixelPanel.scale;
+        glLineWidth(2);
+        glColor3f(0.2f, 1.0f, 0.7f);
+        glBegin(GL_LINES);
+        glVertex2f(pixelPanel.x, lineY);
+        glVertex2f(pixelPanel.x + pixelPanel.width, lineY);
+        glEnd();
+        glLineWidth(1);
+    }
+
     if (showGrid) {
         glColor3f(0.1f, 0.1f, 0.1f); glBegin(GL_LINES);
         for (int x = 0; x < image.width; x += blockSize) {
             float px = pixelPanel.x + x * pixelPanel.scale;
             glVertex2f(px, pixelPanel.y); glVertex2f(px, pixelPanel.y + pixelPanel.height);
         }
-        for (int y = 0; y < image.height; y += blockSize) {
+        for (int y = 0; y < maxY; y += blockSize) {
             float py = pixelPanel.y + y * pixelPanel.scale;
             glVertex2f(pixelPanel.x, py); glVertex2f(pixelPanel.x + pixelPanel.width, py);
         }
@@ -302,17 +343,12 @@ void display() {
     text(30, 30, "PixelCraft - Original and pixel art");
 
     ostringstream controls; 
-    controls << "[+/-] Block: " << blockSize << "   [G] Grid   [A] Sample: "
-             << (useAverageSampling ? "Average" : "Center")
-             << "   [P] Palette: ";
-    if (paletteMode == PaletteMode::Off) controls << "Off";
-    else if (paletteMode == PaletteMode::Retro64) controls << "Retro 64";
-    else controls << "Game Boy";
-    controls << "   [C] Mode: ";
-    if (colorMode == ColorMode::Original) controls << "Color";
-    else if (colorMode == ColorMode::Grayscale) controls << "Grayscale";
-    else controls << "B&W";
-    controls << "   [O] Open   [S] Save PNG   [Esc] Quit";
+    controls << "[+/-] " << blockSize << "   [G] Grid   [A] "
+             << (useAverageSampling ? "Avg" : "Center")
+             << "   [P] " << (paletteMode == PaletteMode::Off ? "Full" : (paletteMode == PaletteMode::Retro64 ? "Retro64" : "GameBoy"))
+             << "   [C] " << (colorMode == ColorMode::Original ? "Color" : (colorMode == ColorMode::Grayscale ? "Gray" : "B&W"))
+             << "   [[ / ]] Int: " << int(intensityFactor * 100 + 0.5f) << "%"
+             << "   [V/Space] Sim   [O] Open   [S] Save   [Esc] Quit";
     text(30, 57, controls.str(), GLUT_BITMAP_HELVETICA_12);
 
     if (!image.rgb.empty()) { 
@@ -349,6 +385,24 @@ void keyboard(unsigned char key, int, int) {
         useAverageSampling = !useAverageSampling;
         message = useAverageSampling ? "Sampling: Average (Box Filter)" : "Sampling: Center Pixel";
         selectedX = selectedY = -1;
+        break;
+    case '[': case '{':
+        intensityFactor = max(0.2f, intensityFactor - 0.1f);
+        message = "Intensity: " + to_string(int(intensityFactor * 100 + 0.5f)) + "%";
+        selectedX = selectedY = -1;
+        break;
+    case ']': case '}':
+        intensityFactor = min(2.5f, intensityFactor + 0.1f);
+        message = "Intensity: " + to_string(int(intensityFactor * 100 + 0.5f)) + "%";
+        selectedX = selectedY = -1;
+        break;
+    case 'v': case 'V': case ' ':
+        if (!image.rgb.empty()) {
+            isSimulating = true;
+            simProgressY = 0;
+            message = "Simulating pixelation process...";
+            glutTimerFunc(20, simTimer, 0);
+        }
         break;
     case 'p': case 'P':
         if (paletteMode == PaletteMode::Off) {
