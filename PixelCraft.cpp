@@ -5,7 +5,7 @@
 #include "third_party/stb_image_write.h"
 #include <GL/freeglut.h>
 #include <windows.h>
-#include <commdlg.h>
+#include <commdlg.h> m
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
@@ -61,6 +61,33 @@ bool loadImage(const string& path) {
     if (w > 4096 || h > 4096) {
         cerr << "Image must be at most 4096 x 4096 pixels.\n";
         return false;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
     }
 
     unsigned char* rgba = stbi_load(path.c_str(), &w, &h, &channels, 4);
