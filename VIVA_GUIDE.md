@@ -20,6 +20,14 @@ PixelCraft loads a PNG and displays it alongside a blocky version. It walks thro
 
 ## Questions a teacher may ask
 
+**What is the difference between Center Sampling and Average Sampling (Box Filter)?**
+- **Center sampling (`A` toggle off):** Picks the single pixel at the center of the block. It is very fast, but if the center hits a specular highlight or random noise, the whole block turns that color.
+- **Average sampling (`A` toggle on):** Computes the mathematical mean of all pixels inside the block ($\sum \text{RGB} / N$). It acts as an area box downsampling filter, preserving the image's overall color tone and lighting much better.
+
+**How does Color Quantization / Palette Reduction work (`P` key)?**
+- **Retro 64-Color:** Uses uniform quantization. Each color channel ($R, G, B$) is reduced from 256 levels (8 bits) to 4 levels (2 bits) via integer division and scaling (`(c / 64) * 85`), producing a constrained $4 \times 4 \times 4 = 64$ color palette.
+- **Game Boy 4-Shade Palette:** Computes luminance ($Y = 0.299R + 0.587G + 0.114B$) and maps the result into 4 authentic 1989 Nintendo Game Boy greenish tones (`(15,56,15)`, `(48,98,48)`, `(139,172,15)`, `(155,188,15)`).
+
 **Why does the result look blocky?** Each rectangular area is filled with only one color instead of showing every original pixel.
 
 **What happens at the image edge?** The last block can be smaller. Its sample is chosen from the center of that remaining area, so it stays inside the image.
@@ -34,4 +42,4 @@ PixelCraft loads a PNG and displays it alongside a blocky version. It walks thro
 
 ## Quick demonstration
 
-Run `run.bat`, press Enter for the sample, use `+` and `-`, toggle `G`, click a block, press `S`, and open `pixelcraft-output.png`. Explain that the position and RGB refer to the sampled source pixel. Mention that the export has no grid.
+Run `run.bat`, press Enter for the sample, use `+` and `-`, toggle `G`, press `A` to show Average vs. Center sampling, press `P` to cycle Retro 64-color and Game Boy palettes, press `C` to cycle color, grayscale, and black-and-white, click a block to inspect, press `S`, and open `pixelcraft-output.png`. The export uses the active sampling and palette modes.

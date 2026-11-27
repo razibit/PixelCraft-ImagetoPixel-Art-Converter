@@ -21,6 +21,11 @@ Image image;
 
 int windowWidth = 1200, windowHeight = 760, blockSize = 16;
 bool showGrid = false;
+bool useAverageSampling = false;
+enum class ColorMode { Original, Grayscale, BlackAndWhite };
+ColorMode colorMode = ColorMode::Original;
+enum class PaletteMode { Off, Retro64, GameBoy };
+PaletteMode paletteMode = PaletteMode::Off;
 int selectedX = -1, selectedY = -1;
 
 string message = "Click a block to inspect it.";
@@ -137,6 +142,69 @@ const unsigned char* colorAt(int x, int y) {
     return &image.rgb[(static_cast<size_t>(y) * image.width + x) * 3];
 }
 
+void applyPalette(unsigned char rgb[3]) {
+    if (paletteMode == PaletteMode::Retro64) {
+        rgb[0] = static_cast<unsigned char>((rgb[0] / 64) * 85);
+        rgb[1] = static_cast<unsigned char>((rgb[1] / 64) * 85);
+        rgb[2] = static_cast<unsigned char>((rgb[2] / 64) * 85);
+    } else if (paletteMode == PaletteMode::GameBoy) {
+        unsigned gray = (77u * rgb[0] + 150u * rgb[1] + 29u * rgb[2] + 128u) / 256u;
+        if (gray < 64) {
+            rgb[0] = 15; rgb[1] = 56; rgb[2] = 15;
+        } else if (gray < 128) {
+            rgb[0] = 48; rgb[1] = 98; rgb[2] = 48;
+        } else if (gray < 192) {
+            rgb[0] = 139; rgb[1] = 172; rgb[2] = 15;
+        } else {
+            rgb[0] = 155; rgb[1] = 188; rgb[2] = 15;
+        }
+    }
+}
+
+void filteredColor(const unsigned char* c, unsigned char out[3]) {
+    if (colorMode == ColorMode::Original) {
+        out[0] = c[0]; out[1] = c[1]; out[2] = c[2];
+    } else {
+        unsigned gray = (77u * c[0] + 150u * c[1] + 29u * c[2] + 128u) / 256u;
+        if (colorMode == ColorMode::BlackAndWhite) gray = gray >= 128u ? 255u : 0u;
+        out[0] = out[1] = out[2] = static_cast<unsigned char>(gray);
+    }
+    applyPalette(out);
+}
+
+void getBlockColor(int bx, int by, unsigned char out[3]) {
+    int right = min(bx + blockSize, image.width);
+    int bottom = min(by + blockSize, image.height);
+
+    if (useAverageSampling) {
+        unsigned long sumR = 0, sumG = 0, sumB = 0;
+        int count = 0;
+        for (int y = by; y < bottom; ++y) {
+            for (int x = bx; x < right; ++x) {
+                const unsigned char* p = colorAt(x, y);
+                sumR += p[0];
+                sumG += p[1];
+                sumB += p[2];
+                count++;
+            }
+        }
+        if (count > 0) {
+            unsigned char raw[3] = {
+                static_cast<unsigned char>(sumR / count),
+                static_cast<unsigned char>(sumG / count),
+                static_cast<unsigned char>(sumB / count)
+            };
+            filteredColor(raw, out);
+        } else {
+            out[0] = out[1] = out[2] = 0;
+        }
+    } else {
+        int sx, sy;
+        samplePosition(bx, by, sx, sy);
+        filteredColor(colorAt(sx, sy), out);
+    }
+}
+
 void rectangle(float x, float y, float w, float h) {
     glVertex2f(x, y); glVertex2f(x + w, y); glVertex2f(x + w, y + h); glVertex2f(x, y + h);
 }
@@ -168,11 +236,9 @@ void drawPixelArt() {
     glBegin(GL_QUADS);
     for (int y = 0; y < image.height; y += blockSize)
         for (int x = 0; x < image.width; x += blockSize) {
-            int sx, sy; 
-
-            samplePosition(x, y, sx, sy);
-
-            glColor3ubv(colorAt(sx, sy));
+            unsigned char c[3];
+            getBlockColor(x, y, c);
+            glColor3ubv(c);
 
             rectangle(pixelPanel.x + x * pixelPanel.scale, pixelPanel.y + y * pixelPanel.scale,
                 (min(x + blockSize, image.width) - x) * pixelPanel.scale,
@@ -202,14 +268,16 @@ void drawInspector() {
         return; 
     }
 
-    int sx, sy;
-    samplePosition(selectedX, selectedY, sx, sy);
-
-    const unsigned char* c = colorAt(sx, sy);
+    unsigned char displayed[3];
+    getBlockColor(selectedX, selectedY, displayed);
 
     ostringstream label;
-
-    label << "Sample: (" << sx << ", " << sy << ")   RGB: (" << int(c[0]) << ", " << int(c[1]) << ", " << int(c[2]) << ")";
+    if (useAverageSampling) {
+        label << "Block: (" << selectedX << ", " << selectedY << ") [Average]   RGB: (" << int(displayed[0]) << ", " << int(displayed[1]) << ", " << int(displayed[2]) << ")";
+    } else {
+        int sx, sy; samplePosition(selectedX, selectedY, sx, sy);
+        label << "Sample: (" << sx << ", " << sy << ") [Center]   RGB: (" << int(displayed[0]) << ", " << int(displayed[1]) << ", " << int(displayed[2]) << ")";
+    }
     text(30, top + 25, label.str());
     text(30, top + 52, "Zoom: selected block and its neighbors", GLUT_BITMAP_HELVETICA_12);
     // A 3 x 3 neighborhood of pixel-art blocks, with the selected block outlined.
@@ -229,9 +297,9 @@ void drawInspector() {
             }
 
             // Sample the color at this position
-            int px, py;
-            samplePosition(x, y, px, py);
-            glColor3ubv(colorAt(px, py));
+            unsigned char c[3];
+            getBlockColor(x, y, c);
+            glColor3ubv(c);
 
             // Draw a cell for this neighbor in the 3x3 grid
             // (dx + 1) and (dy + 1) convert -1..1 range to 0..2 for grid positioning
@@ -261,7 +329,17 @@ void display() {
     text(30, 30, "PixelCraft - Original and pixel art");
 
     ostringstream controls; 
-    controls << "[+/-] Block: " << blockSize << "    [G] Grid    [O] Open    [S] Save PNG    [Esc] Quit";
+    controls << "[+/-] Block: " << blockSize << "   [G] Grid   [A] Sample: "
+             << (useAverageSampling ? "Average" : "Center")
+             << "   [P] Palette: ";
+    if (paletteMode == PaletteMode::Off) controls << "Off";
+    else if (paletteMode == PaletteMode::Retro64) controls << "Retro 64";
+    else controls << "Game Boy";
+    controls << "   [C] Mode: ";
+    if (colorMode == ColorMode::Original) controls << "Color";
+    else if (colorMode == ColorMode::Grayscale) controls << "Grayscale";
+    else controls << "B&W";
+    controls << "   [O] Open   [S] Save PNG   [Esc] Quit";
     text(30, 57, controls.str(), GLUT_BITMAP_HELVETICA_12);
 
     if (!image.rgb.empty()) { 
@@ -276,12 +354,12 @@ bool saveImage() {
     vector<unsigned char> result(image.rgb.size());
     for (int y = 0; y < image.height; y += blockSize)
         for (int x = 0; x < image.width; x += blockSize) {
-            int sx, sy; samplePosition(x, y, sx, sy); 
-            const unsigned char* c = colorAt(sx, sy);
+            unsigned char converted[3];
+            getBlockColor(x, y, converted);
 
             for (int py = y; py < min(y + blockSize, image.height); ++py)
                 for (int px = x; px < min(x + blockSize, image.width); ++px)
-                    for (int k = 0; k < 3; ++k) result[(static_cast<size_t>(py) * image.width + px) * 3 + k] = c[k];
+                    for (int k = 0; k < 3; ++k) result[(static_cast<size_t>(py) * image.width + px) * 3 + k] = converted[k];
         }
         
     bool ok = stbi_write_png("pixelcraft-output.png", image.width, image.height, 3, result.data(), image.width * 3) != 0;
@@ -294,6 +372,30 @@ void keyboard(unsigned char key, int, int) {
     case '+': case '=': blockSize = min(blockSize + 1, 128); selectedX = selectedY = -1; break;
     case '-': case '_': blockSize = max(blockSize - 1, 1); selectedX = selectedY = -1; break;
     case 'g': case 'G': showGrid = !showGrid; break;
+    case 'a': case 'A':
+        useAverageSampling = !useAverageSampling;
+        message = useAverageSampling ? "Sampling: Average (Box Filter)" : "Sampling: Center Pixel";
+        selectedX = selectedY = -1;
+        break;
+    case 'p': case 'P':
+        if (paletteMode == PaletteMode::Off) {
+            paletteMode = PaletteMode::Retro64;
+            message = "Palette: Retro 64-Color (Uniform Quantization)";
+        } else if (paletteMode == PaletteMode::Retro64) {
+            paletteMode = PaletteMode::GameBoy;
+            message = "Palette: Classic Game Boy 4-Shade";
+        } else {
+            paletteMode = PaletteMode::Off;
+            message = "Palette: Off (Full Color)";
+        }
+        selectedX = selectedY = -1;
+        break;
+    case 'c': case 'C':
+        if (colorMode == ColorMode::Original) colorMode = ColorMode::Grayscale;
+        else if (colorMode == ColorMode::Grayscale) colorMode = ColorMode::BlackAndWhite;
+        else colorMode = ColorMode::Original;
+        selectedX = selectedY = -1;
+        break;
     case 'o': case 'O': { string path = chooseImagePath(); if (!path.empty() && !loadImage(path)) message = "Open failed; previous image kept. See console."; break; }
     case 's': case 'S': saveImage(); break;
     case 27: case 'q': case 'Q': glutLeaveMainLoop(); 
