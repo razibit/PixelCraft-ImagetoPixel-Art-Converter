@@ -1,45 +1,34 @@
 # PixelCraft viva guide
 
-## One-minute explanation
+On the opening screen, point to the two gold outlines. Each encloses the same part of the image. The left contains up to 16 × 16 individual pixels. The right fills that area with one RGB color. The panel underneath shows where that color came from.
 
-PixelCraft loads a PNG and displays it alongside a blocky version. It walks through the source image one block at a time, samples a pixel near the middle of each block, and fills that block with the sampled RGB color. The user can change block size, show the grid, click a block to inspect its source position and color, and save the result. OpenGL draws the visual elements; FreeGLUT manages the window and input.
+## Follow the sample roof block
 
-## Reading order and function connections
+| Stage | What to show |
+|---|---|
+| Source block | The block runs from (160, 96) to (175, 111), inclusive. It contains 16 × 16 = 256 pixels. Coordinates start at the top left. Click the enlarged patch for the selected pixel's PNG values. |
+| Sample color | Red, green, and blue sum to 42,216, 32,166, and 30,493. Divide each by 256 using integer division to get (164, 125, 119). Click a pixel to see how it contributes. Switch to Center to inspect (168, 104), which gives (186, 99, 85). |
+| Color mode | Return to Average. Full color carries (164, 125, 119) forward. Grayscale computes (77 × 164 + 150 × 125 + 29 × 119 + 128) / 256 = 136. Black-and-white compares 136 to 128 and assigns 255 to all three channels. |
+| Palette | With Average and Full color, Retro 64 maps (164, 125, 119) to (170, 85, 85). Game Boy computes brightness 136 and selects its third shade, (139, 172, 15), from the 128–191 range. |
+| Fill block | The program writes the final RGB into each of the 256 output positions. The outlined center of the 3 × 3 neighborhood shows where that color lands. |
 
-1. **Global state and `Image`:** `width`, `height`, and `rgb` describe the image. Each pixel uses three adjacent bytes in row-major order: red, green, then blue. The index is `(y * width + x) * 3`. Other variables track the window, block size, grid, selection and panels.
-2. **`main`:** execution starts here. It asks for an image, initializes FreeGLUT, creates a double-buffered RGB window, registers callbacks and enters `glutMainLoop`. The loop calls our functions when events occur. Closing the window or pressing Escape returns from the loop and ends the program.
-3. **`readPath`, `chooseImagePath`, and `loadImage`:** startup reads a console path, while the open shortcut uses a Windows file picker. `loadImage` asks stb_image for RGBA pixels, blends each against white using its alpha value, and stores RGB. It builds a temporary image first, so a failed replacement does not destroy the current one.
-4. **`samplePosition` and `colorAt`:** the first finds the center of the actual block, including a smaller block at an edge; the second returns its RGB bytes. Drawing, inspecting and saving use these same helpers.
-5. **`reshape` and `layout`:** `reshape` sets the viewport and an orthographic projection with the origin at the top left. `layout` calculates two fitted panels while preserving image proportions. FreeGLUT calls `reshape`; `display` calls `layout`.
-6. **`display`, `drawOriginal`, and `drawPixelArt`:** FreeGLUT calls `display` when the window needs repainting. It clears the frame, writes labels, calculates the panels, and calls the drawing functions. `glDrawPixels` shows the original with `glPixelZoom` for scaling and vertical orientation. Nested loops choose each block color; `glBegin(GL_QUADS)`, vertices, and `glEnd` draw rectangles. `glutSwapBuffers` presents the completed frame without showing intermediate drawing.
-7. **`mouse` and `drawInspector`:** a click inside the result maps screen coordinates back to source coordinates and then to a block. The inspector displays that block's sample coordinates and RGB values and draws its 3×3 block neighborhood. Clicks outside the result do nothing.
-8. **`keyboard`:** FreeGLUT calls this on a key press. It adjusts the size, grid, or image, calls `saveImage`, or exits. `glutPostRedisplay` requests a fresh frame after changes.
-9. **`saveImage`:** fills a new RGB buffer using the same block samples, then `stbi_write_png` writes it. The on-screen grid and labels are never copied into this buffer.
+## Read the source in this order
 
-`rectangle` supplies four vertices, and `text` uses FreeGLUT bitmap characters. `glColor3ubv` supplies a block's RGB color; `glBegin`/`glEnd` group primitives; `glVertex2f` specifies points. `glViewport`, `glOrtho`, and the matrix calls map our 2D coordinates to the window. `glPixelStorei` tells OpenGL that RGB rows are tightly packed.
+1. Start in `main()` in `PixelCraft.cpp`. It reads the startup path, calls `loadImage`, creates a double-buffered RGB window and registers the display, resize, keyboard and mouse callbacks. `glutMainLoop` waits for those events. Esc or Q calls `glutLeaveMainLoop`. Closing the window also returns control to `main`.
+2. In `BlockProcessing.h`, look at `Image`, `Point`, `Block`, and `Settings`. `image.rgb[y * width + x]` is one source RGB triplet. A block records its origin and actual width and height. `blockAt` snaps a source coordinate to its block and clips the right and bottom edges.
+3. Return to `loadImage`. It checks the dimensions, asks stb_image for four channels, then calls `onWhite` for each red, green, or blue byte. For channel value c and opacity a, the visible value is `(c*a + 255*(255-a) + 127) / 255` with integer division. Zero opacity gives white. The program keeps raw RGBA when an image uses transparency so the walkthrough can explain the blend for an individual pixel.
+4. Read `calculateBlock`. Average accumulates each RGB channel in row order and divides by the actual pixel count. Center reads the pixel at `(x + width/2, y + height/2)`. Color mode runs next, then the palette. The returned `BlockResult` contains the input and output of each of these steps. For the selected Average block, an optional list records totals before and after each source pixel.
+5. Read `makeArtwork`. For each block it calls `calculateBlock` and writes the final RGB across the corresponding output rows. Changing a processing setting rebuilds this buffer. `saveImage` gives the same buffer to the PNG writer, so the exported image contains only the artwork.
+6. Look at `chooseBlock` and `refreshSelection`. The anchor remembers a source location, which keeps the two outlines on the same subject when block size changes. A separate pixel index selects a row in the running totals. `examplePoint` favors a mixed-color block near the image center on load.
+7. Read `reshape`, `display`, and `drawComparison`. The viewport and orthographic projection give OpenGL a top-left coordinate system. A fitted rectangle preserves each image's proportions. The source uses tightly packed RGB rows and negative vertical pixel zoom. The result normally uses colored OpenGL quads. For single-pixel blocks or blocks smaller than a display pixel, it draws the same artwork buffer directly. Selection outlines and grid lines are drawn afterward.
+8. Follow `drawWalkthrough` into its five stage functions. `mouse` maps either image to source coordinates and the detail patch to a pixel index. The rectangles used to draw the buttons also define their click targets. Buttons and keyboard shortcuts call `act`. `glutPostRedisplay` requests a frame and `glutSwapBuffers` presents the completed drawing.
 
-## Questions a teacher may ask
+## Questions to practice
 
-**What is the difference between Center Sampling and Average Sampling (Box Filter)?**
-- **Center sampling (`A` toggle off):** Picks the single pixel at the center of the block. It is very fast, but if the center hits a specular highlight or random noise, the whole block turns that color.
-- **Average sampling (`A` toggle on):** Computes the mathematical mean of all pixels inside the block ($\sum \text{RGB} / N$). It acts as an area box downsampling filter, preserving the image's overall color tone and lighting much better.
+**Why do the partial totals change when I click a different pixel?** Each pixel has a position in row order. The walkthrough shows the sum before that position, the selected RGB, and the sum after it. The completed average still uses every pixel in the block.
 
-**How does Color Quantization / Palette Reduction work (`P` key)?**
-- **Retro 64-Color:** Uses uniform quantization. Each color channel ($R, G, B$) is reduced from 256 levels (8 bits) to 4 levels (2 bits) via integer division and scaling (`(c / 64) * 85`), producing a constrained $4 \times 4 \times 4 = 64$ color palette.
-- **Game Boy 4-Shade Palette:** Computes luminance ($Y = 0.299R + 0.587G + 0.114B$) and maps the result into 4 authentic 1989 Nintendo Game Boy greenish tones (`(15,56,15)`, `(48,98,48)`, `(139,172,15)`, `(155,188,15)`).
+**What happens at the border?** If only 3 columns and 5 rows remain, the block contains 15 pixels. Average divides by 15 and Center uses the center of those 3 × 5 pixels. The saved image keeps its original dimensions.
 
-**Why does the result look blocky?** Each rectangular area is filled with only one color instead of showing every original pixel.
+**Why do full color and a palette both have stages?** They act in order. Grayscale computes weighted brightness, and black-and-white applies a threshold of 128. Retro 64 reduces each incoming channel to 0, 85, 170, or 255. Game Boy maps incoming brightness into one of four green shades. The source patches and equations show the order for any combination.
 
-**What happens at the image edge?** The last block can be smaller. Its sample is chosen from the center of that remaining area, so it stays inside the image.
-
-**Does this use Bresenham or dithering?** No. It uses loops, arithmetic, and OpenGL rectangles. It does not implement a named drawing or dithering algorithm.
-
-**What is the CGIP connection?** RGB image representation and spatial sampling are image concepts; OpenGL drawing and coordinate mapping are graphics concepts. This alone does not prove a particular course outcome is satisfied.
-
-**Why can detail disappear?** One sampled color cannot represent all the colors in a block, especially when blocks are large.
-
-**What changed from the submitted proposal?** Palette reduction, grayscale, JPEG input, full-image zoom/panning, and algorithm visualization are excluded; optional dithering is excluded too. Ask the teacher to approve the simpler scope.
-
-## Quick demonstration
-
-Run `run.bat`, press Enter for the sample, use `+` and `-`, toggle `G`, press `A` to show Average vs. Center sampling, press `P` to cycle Retro 64-color and Game Boy palettes, press `C` to cycle color, grayscale, and black-and-white, click a block to inspect, press `S`, and open `pixelcraft-output.png`. The export uses the active sampling and palette modes.
+**Which CGIP concepts can I demonstrate?** Spatial sampling, RGB and opacity, grayscale, thresholding, color quantization, and mapping source coordinates to OpenGL primitives. A useful demonstration is to switch between Center and Average on the same high-contrast edge and explain the two results.

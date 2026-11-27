@@ -1,6 +1,7 @@
 *.mp4
 *.pptx
 *.png
+!sample.png
 *.pdf
 
 # Keep project documentation under version control.

@@ -1,14 +1,12 @@
-# Short demonstration script
+# Show one block in PixelCraft
 
-Record the PixelCraft window and narrate in your own voice. Keep the console path and any unrelated windows or personal material out of the recording. The sample PNG opens by pressing Enter at launch.
+Open `run.bat` and press Enter for the sample. The following walkthrough takes about a minute and works entirely with the visible controls.
 
-`PixelCraft_Demo_Silent.mp4` is a 22-second window-only capture with automated demonstration actions. It shows the block size changing, the grid, and the inspector; it does **not** show saving. Add your own narration to it, or record a new take using the full script below if you want to demonstrate saving as well.
+1. **Source block.** Point to the same gold outline in both images. “These 256 original pixels occupy one 16 × 16 block. On the right they share one color.” Click a pixel in the enlarged patch to show its PNG values.
+2. **Sample color.** Click **Next**. “Red sums to 42,216. Dividing by 256 gives 164. The same calculation for green and blue gives RGB (164, 125, 119).” Click inside the patch and use **Next Pixel** to show one actual addition.
+3. **Compare sampling.** Click the **Sample** toolbar button. “Center uses this one pixel at (168, 104). It gives (186, 99, 85).” Click **Sample** again so the rest of the example uses Average.
+4. **Color mode.** Click **Next**, then the **Mode** toolbar button. “These three numbers produce brightness 136.” Click **Mode** twice more to restore Full color.
+5. **Palette.** Click **Next**, then **Palette** once. “Retro 64 puts each channel into one of four bins. The block becomes (170, 85, 85).”
+6. **Fill block.** Click **Next**. Point to the original patch, final color, then the outlined center of the neighborhood. “All 256 positions get this RGB.” Click another block in either image to show that the explanation follows the selection.
 
-1. **Introduction:** “PixelCraft is a C++ and OpenGL application that converts a PNG image into a blocky pixel-art style.”
-2. **Comparison:** “The original appears on the left and the processed image on the right. Each block uses one existing source pixel's color.”
-3. **Controls:** Press `+` several times and then `-`. “The block size changes how much detail is visible.” Press `G`. “The grid shows how the blocks are arranged.”
-4. **Inspector:** Click a block. “The inspector shows the sampled source position, its red, green and blue values, and an enlarged view of neighboring blocks.”
-5. **Save:** Press `S`. “The PNG output keeps the original dimensions and does not include the grid.”
-6. **Conclusion:** “This demonstrates RGB image data, simple spatial sampling and OpenGL drawing. It uses loops and arithmetic; it does not implement dithering or palette reduction.”
-
-Practice once, then record. The submitted proposal described a larger scope, so seek the teacher's approval for the simplified version.
+For a saved example, click **Save**. The file is `pixelcraft-output.png` and repeated saves replace it. The existing 22-second silent clip shows the earlier inspector. Use this script for a recording of the current walkthrough.
